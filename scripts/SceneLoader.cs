@@ -101,7 +101,7 @@ public class SceneLoader : MonoBehaviour
         }
     }
 
-    public IEnumerator DownloadAndInstantiateObject(ObjectData objectData, string assetBundleUrl)
+    public IEnumerator DownloadAndInstantiateObject(ObjectData objectData, string assetBundleUrl, string newTextContent = null)
     {
         // Get the storage reference for AssetBundle
         StorageReference assetBundleRef = storage.GetReferenceFromUrl(assetBundleUrl);
@@ -118,95 +118,101 @@ public class SceneLoader : MonoBehaviour
             string downloadUrl = task.Result.ToString();
 
             // Download AssetBundle and instantiate
-            StartCoroutine(DownloadAssetBundleAndInstantiate(downloadUrl, objectData));
+            StartCoroutine(DownloadAssetBundleAndInstantiate(downloadUrl, objectData, newTextContent));
         });
 
         yield return null;
     }
-    private IEnumerator DownloadAssetBundleAndInstantiate(string assetBundleUrl, ObjectData objectData)
+    private IEnumerator DownloadAssetBundleAndInstantiate(string assetBundleUrl, ObjectData objectData, string newTextContent = null)
     {
-        AssetBundle bundle;
+        {
+            AssetBundle bundle;
 
-        if (loadedAssetBundles.TryGetValue(assetBundleUrl, out bundle))
-        {
-            Debug.Log("AssetBundle already loaded, reusing.");
-        }
-        else
-        {
-            using (UnityWebRequest www = UnityWebRequestAssetBundle.GetAssetBundle(assetBundleUrl))
+            if (loadedAssetBundles.TryGetValue(assetBundleUrl, out bundle))
             {
-                yield return www.SendWebRequest();
-
-                if (www.result != UnityWebRequest.Result.Success)
-                {
-                    Debug.LogError("Failed to download AssetBundle: " + www.error);
-                    yield break;
-                }
-
-                bundle = DownloadHandlerAssetBundle.GetContent(www);
-                loadedAssetBundles.Add(assetBundleUrl, bundle);
-            }
-        }
-
-        if (bundle == null)
-        {
-            Debug.LogError("AssetBundle is null");
-            yield break;
-        }
-
-        GameObject prefab = bundle.LoadAsset<GameObject>(objectData.assetBundleName);
-        Vector3 position = new Vector3(objectData.position.x, objectData.position.y, objectData.position.z);
-        Quaternion rotation = Quaternion.Euler(objectData.rotation.x, objectData.rotation.y, objectData.rotation.z);
-        Vector3 scale = new Vector3(objectData.scale.x, objectData.scale.y, objectData.scale.z);
-
-        GameObject go = Instantiate(prefab, position, rotation);
-        go.transform.localScale = scale;
-
-        if (objectData.objectType == "Text")
-        {
-            Modular3DText textComponent = go.GetComponent<Modular3DText>();
-            if (textComponent != null)
-            {
-                Material originalMaterial = textComponent.Material;
-                // Reapply shader to the material
-                originalMaterial.shader = Shader.Find(originalMaterial.shader.name);
-
-                Debug.Log("Original Material for Text: " + originalMaterial.name);
-                textComponent.Material = originalMaterial;
-                Debug.Log("Material reapplied to Text: " + textComponent.Material.name);
-
-                textComponent.UpdateText();
-                yield break;
+                Debug.Log("AssetBundle already loaded, reusing.");
             }
             else
             {
-                Debug.LogWarning("Modular3DText component not found on the GameObject.");
+                using (UnityWebRequest www = UnityWebRequestAssetBundle.GetAssetBundle(assetBundleUrl))
+                {
+                    yield return www.SendWebRequest();
+
+                    if (www.result != UnityWebRequest.Result.Success)
+                    {
+                        Debug.LogError("Failed to download AssetBundle: " + www.error);
+                        yield break;
+                    }
+
+                    bundle = DownloadHandlerAssetBundle.GetContent(www);
+                    loadedAssetBundles.Add(assetBundleUrl, bundle);
+                }
             }
-        }
 
-        yield return null;
-
-        Renderer renderer = go.GetComponent<Renderer>();
-        if (renderer != null)
-        {
-            Material[] materials = renderer.materials;
-            Debug.Log("Number of materials in Renderer: " + materials.Length);
-            for (int i = 0; i < materials.Length; i++)
+            if (bundle == null)
             {
-                Material originalMaterial = materials[i];
-                Shader originalShader = originalMaterial.shader;
-                Debug.Log("Original Material: " + originalMaterial.name);
-                Debug.Log("Original Shader: " + originalShader.name);
-                originalMaterial.shader = Shader.Find(originalShader.name);
-                Debug.Log("Shader reapplied: " + originalMaterial.shader.name);
+                Debug.LogError("AssetBundle is null");
+                yield break;
             }
-            renderer.materials = materials;
-            Debug.Log("Materials reapplied to Renderer.");
-        }
-        else
-        {
-            Debug.LogWarning("Renderer component not found on the GameObject.");
+
+            GameObject prefab = bundle.LoadAsset<GameObject>(objectData.assetBundleName);
+            Vector3 position = new Vector3(objectData.position.x, objectData.position.y, objectData.position.z);
+            Quaternion rotation = Quaternion.Euler(objectData.rotation.x, objectData.rotation.y, objectData.rotation.z);
+            Vector3 scale = new Vector3(objectData.scale.x, objectData.scale.y, objectData.scale.z);
+
+            GameObject go = Instantiate(prefab, position, rotation);
+            go.transform.localScale = scale;
+
+            if (objectData.objectType == "Text")
+            {
+                Modular3DText textComponent = go.GetComponent<Modular3DText>();
+                if (textComponent != null)
+                {
+                    Material originalMaterial = textComponent.Material;
+                    // Reapply shader to the material
+                    originalMaterial.shader = Shader.Find(originalMaterial.shader.name);
+
+                    Debug.Log("Original Material for Text: " + originalMaterial.name);
+                    textComponent.Material = originalMaterial;
+                    Debug.Log("Material reapplied to Text: " + textComponent.Material.name);
+
+                    if (!string.IsNullOrEmpty(newTextContent))
+                    {
+                        textComponent.Text = newTextContent;  // Set the new text content
+                                                              // Assuming you have a method to update or refresh the text
+                        textComponent.UpdateText();
+                    }
+                    yield break;
+                }
+                else
+                {
+                    Debug.LogWarning("Modular3DText component not found on the GameObject.");
+                }
+            }
+
+            yield return null;
+
+            Renderer renderer = go.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                Material[] materials = renderer.materials;
+                Debug.Log("Number of materials in Renderer: " + materials.Length);
+                for (int i = 0; i < materials.Length; i++)
+                {
+                    Material originalMaterial = materials[i];
+                    Shader originalShader = originalMaterial.shader;
+                    Debug.Log("Original Material: " + originalMaterial.name);
+                    Debug.Log("Original Shader: " + originalShader.name);
+                    originalMaterial.shader = Shader.Find(originalShader.name);
+                    Debug.Log("Shader reapplied: " + originalMaterial.shader.name);
+                }
+                renderer.materials = materials;
+                Debug.Log("Materials reapplied to Renderer.");
+            }
+            else
+            {
+                Debug.LogWarning("Renderer component not found on the GameObject.");
+            }
         }
     }
-
 }
