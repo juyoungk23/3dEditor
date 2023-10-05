@@ -1,51 +1,75 @@
 using UnityEngine;
-using TMPro;  // Add this for TextMeshPro
-using UnityEngine.UI;  // For Unity's UI elements
+using UnityEngine.UI;
+using TMPro;
+using System.Collections.Generic;
 using TinyGiantStudio.Text;
+
 public class FontSwitcher : MonoBehaviour
 {
     [SerializeField]
-    private UnityEngine.UI.Button switchFontButton;  // Fully qualify the type name
+    private TMP_Dropdown fontDropdown;  // Reference to the TextMeshPro dropdown
     [SerializeField]
     private string fontsPath = "MyCustomFonts";  // Relative path inside Resources folder
 
-    private int currentIndex = 0;
-    private TinyGiantStudio.Text.Font[] fonts;  // Fully qualify the type name
+    private TinyGiantStudio.Text.Font[] fonts;  // Array to store custom fonts
 
     void Start()
     {
-        // Attach listener to button's OnClick event
-        if (switchFontButton != null)
-        {
-            switchFontButton.onClick.AddListener(SwitchFont);
-        }
-        else
-        {
-            Debug.LogError("SwitchFontButton is not set. Please assign it in the Inspector.");
-        }
+        // Initialize the dropdown options list as empty
+        fontDropdown.options = new List<TMP_Dropdown.OptionData>();
 
         // Load all custom font files from the specified directory inside Resources folder
-        fonts = Resources.LoadAll<TinyGiantStudio.Text.Font>(fontsPath);  // Fully qualify the type name
+        fonts = Resources.LoadAll<TinyGiantStudio.Text.Font>(fontsPath);
 
         // If no fonts are found, log a warning
         if (fonts.Length == 0)
         {
             Debug.LogWarning("No fonts found in directory: " + fontsPath);
-            return;
         }
 
-        Debug.Log("Loaded " + fonts.Length + " fonts.");
+        // Attach listener to dropdown value change event
+        fontDropdown.onValueChanged.AddListener(OnDropdownValueChanged);
+
+        // Initially disable the dropdown
+        fontDropdown.interactable = false;
     }
 
-    // Call this function when the button is clicked
-    public void SwitchFont()
+    void Update()
     {
-        Debug.Log("SwitchFont called");
-
-        // Check what object is currently selected in SelectedObjectTracker
+        // Check if a text object is currently selected
         GameObject selectedObject = SelectedObjectTracker.selectedObject;
 
-        // If no object is selected, return or print a message
+        if (selectedObject != null)
+        {
+            Modular3DText textComponent = selectedObject.GetComponent<Modular3DText>();
+            if (textComponent != null)
+            {
+                // Enable the dropdown
+                fontDropdown.interactable = true;
+
+                // Populate dropdown with font names only if it's empty
+                if (fontDropdown.options.Count == 0)
+                {
+                    foreach (var font in fonts)
+                    {
+                        TMP_Dropdown.OptionData option = new TMP_Dropdown.OptionData(font.name);
+                        fontDropdown.options.Add(option);
+                    }
+                }
+                return;
+            }
+        }
+
+        // If no text object is selected or if the object is null, clear and disable the dropdown
+        fontDropdown.options.Clear();
+        fontDropdown.captionText.text = "";  // Clear the label
+        fontDropdown.interactable = false;  // Disable the dropdown
+    }
+
+    // Update the font of the selected object when the dropdown value changes
+    public void OnDropdownValueChanged(int index)
+    {
+        GameObject selectedObject = SelectedObjectTracker.selectedObject;
         if (selectedObject == null)
         {
             Debug.LogWarning("No object selected.");
@@ -62,15 +86,8 @@ public class FontSwitcher : MonoBehaviour
             return;
         }
 
-        // Increment and loop around the index
-        currentIndex++;
-        if (currentIndex >= fonts.Length)
-        {
-            currentIndex = 0;
-        }
-
-        // Change the font of the selected object's Modular3DText component
-        modular3DText.Font = fonts[currentIndex];
-        Debug.Log("Switching Font to: " + fonts[currentIndex].name);
+        // Use the font selected in the dropdown
+        modular3DText.Font = fonts[index];
+        Debug.Log("Switching Font to: " + fonts[index].name);
     }
 }

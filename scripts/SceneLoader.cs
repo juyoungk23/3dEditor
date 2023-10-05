@@ -1,6 +1,3 @@
-// Loads a scene into unity. The 3d Models are in assetbundles, stored in Firebase Storage
-// The scene configuration data is also stored in a JSON file in Firebase Storage
-
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;

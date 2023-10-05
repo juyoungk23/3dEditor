@@ -1,6 +1,3 @@
-// A script that can be attached to a GameObject with a Box Collider to allow it to be dragged around the scene.
-// Issues: Rotation is not intuitive, and resizing is not smooth.
-
 using UnityEngine;
 
 public class ObjectDragger : MonoBehaviour
@@ -10,12 +7,11 @@ public class ObjectDragger : MonoBehaviour
     private Camera mainCamera;
 
     // For resizing
-    private Vector3 initialScale;
-    private Vector3 initialMousePosition;
+    private Vector3 scaleChange;
+    private Vector3 lastMousePosition;
 
     // For rotating
-    private Quaternion initialRotation;
-    private float rotationSpeed = 1000.0f; // Increased sensitivity
+    private float rotationSpeed = 2000.0f;  // Reduced for finer control
 
     void Start()
     {
@@ -31,20 +27,16 @@ public class ObjectDragger : MonoBehaviour
             RaycastHit hit;
             Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
 
-            // Check if the ray hits a GameObject with a Box Collider
-            if (Physics.Raycast(ray, out hit) && hit.collider is BoxCollider)
+            // Check if the ray hits a GameObject with a Collider (any type)
+            if (Physics.Raycast(ray, out hit))
             {
                 selectedObject = hit.collider.gameObject;
 
                 // Calculate the offset between the mouse position and the GameObject position
                 offset = selectedObject.transform.position - hit.point;
 
-                // Save initial scale and mouse position for resizing
-                initialScale = selectedObject.transform.localScale;
-                initialMousePosition = Input.mousePosition;
-
-                // Save initial rotation for rotating
-                initialRotation = selectedObject.transform.rotation;
+                // Save the last mouse position for resizing
+                lastMousePosition = Input.mousePosition;
             }
         }
 
@@ -67,17 +59,20 @@ public class ObjectDragger : MonoBehaviour
                 // If Alt is held down, resize the object
                 if (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt))
                 {
-                    Vector3 mouseDelta = Input.mousePosition - initialMousePosition;
-                    float resizeFactor = 1.0f + mouseDelta.y * 0.01f;
-                    selectedObject.transform.localScale = initialScale * resizeFactor;
+                    Vector3 mouseDelta = Input.mousePosition - lastMousePosition;
+                    scaleChange = new Vector3(mouseDelta.y * 0.01f, mouseDelta.y * 0.01f, mouseDelta.y * 0.01f);
+                    selectedObject.transform.localScale += scaleChange;
+
+                    // Update last mouse position
+                    lastMousePosition = Input.mousePosition;
                 }
                 // If Ctrl is held down, rotate the object
                 else if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
                 {
                     float rotationAmountX = Input.GetAxis("Mouse X") * rotationSpeed * Time.deltaTime;
                     float rotationAmountY = Input.GetAxis("Mouse Y") * rotationSpeed * Time.deltaTime;
-                    selectedObject.transform.Rotate(Vector3.up, -rotationAmountX);
-                    selectedObject.transform.Rotate(Vector3.right, -rotationAmountY); // Negative for intuitive control
+                    selectedObject.transform.Rotate(Vector3.up * -rotationAmountX, Space.World);
+                    selectedObject.transform.Rotate(Vector3.right * -rotationAmountY, Space.World);
                 }
                 // Else, move the object
                 else
